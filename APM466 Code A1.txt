@@ -84,3 +84,143 @@ bonds_ytm_table = bonds_df.set_index("ISIN").T
 # Show the table to user
 import ace_tools as tools
 tools.display_dataframe_to_user(name="YTM Calculation Table", dataframe=bonds_ytm_table)
+
+###2.2 4(b)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import fsolve
+
+# Extract relevant data
+dates = bonds_df.columns[6:]  # Extracting the date columns
+maturities = bonds_df["Years to Maturity"].values  # Years to maturity
+coupon_rates = bonds_df["Coupon %"].str.rstrip('%').astype(float) / 100  # Convert to decimal format
+face_value = 100  # Assumed face value of the bond
+freq = 2  # Semiannual payments
+
+# Function to solve for spot rates using bootstrapping
+def bootstrap_spot_curve(prices, maturities, coupon_rates, face_value=100, freq=2):
+    spot_rates = []
+
+    for i in range(len(maturities)):
+        P = prices[i]
+        C = coupon_rates[i] * face_value / freq
+        n = int(maturities[i] * freq)  # Number of periods
+        
+        if n == 0:
+            continue  # Skip bonds with 0 years to maturity
+
+        if i == 0 and C == 0:  # Zero-coupon bond case
+            r_n = ((face_value / P) ** (1 / n) - 1) * freq
+        else:
+            # Solve for r_n using known spot rates
+            def bond_price_equation(r_n):
+                discount_sum = sum([C / (1 + spot_rates[j] / freq) ** ((j + 1)) for j in range(i)])
+                return discount_sum + (face_value + C) / (1 + r_n / freq) ** n - P
+
+            r_n_guess = 0.05  # Initial guess for the root solver
+            r_n = fsolve(bond_price_equation, r_n_guess)[0]
+
+        spot_rates.append(r_n)
+
+    return spot_rates
+
+# Compute spot curves for each day
+spot_curves = {}
+
+for date in dates:
+    prices = bonds_df[date].values
+    spot_rates = bootstrap_spot_curve(prices, maturities, coupon_rates, face_value, freq)
+    spot_curves[date] = spot_rates
+
+# Plot spot curves
+plt.figure(figsize=(10, 6))
+
+for date, rates in spot_curves.items():
+    plt.plot(maturities[:len(rates)], rates, label=date, alpha=0.5)
+
+plt.xlabel("Years to Maturity")
+plt.ylabel("Spot Rate (%)")
+plt.title("5-Year Spot Curve for Each Day")
+plt.legend(fontsize=8, loc="upper right", ncol=2)
+plt.grid(True)
+plt.show()
+
+###2.2 4(c)
+# Compute 1-year forward rates for maturities from 2 to 5 years
+forward_curves = {}
+
+for date, spot_rates in spot_curves.items():
+    forward_rates = []
+
+    for n in range(2, 6):  # Compute forward rates for n=2,3,4,5
+        if n <= len(spot_rates):  # Ensure we have enough spot rates
+            r_n = spot_rates[n - 1]  # Spot rate for maturity n
+            r_1 = spot_rates[0]  # 1-year spot rate
+
+            f_1n = freq * (( (1 + r_n / freq) ** (n * freq) / (1 + r_1 / freq) ** freq ) ** (1 / ((n - 1) * freq)) - 1)
+            forward_rates.append(f_1n)
+
+    forward_curves[date] = forward_rates
+
+# Plot forward curves
+plt.figure(figsize=(10, 6))
+
+for date, rates in forward_curves.items():
+    plt.plot(range(2, 6), rates, label=date, alpha=0.5)
+
+plt.xlabel("Years to Maturity (Starting at Year 1)")
+plt.ylabel("Forward Rate (%)")
+plt.title("1-Year Forward Curve for Each Day")
+plt.legend(fontsize=8, loc="upper right", ncol=2)
+plt.grid(True)
+plt.show()
+
+###Q5
+# Step 1: Compute Log-Returns for Yields (9x5 matrix)
+log_returns_yield_matrix = np.log(spot_rate_data.shift(-1) / spot_rate_data).dropna()
+log_returns_yield_matrix = log_returns_yield_matrix.iloc[:, :5]  # Ensure it's 9x5
+
+# Step 2: Compute Log-Returns for Forward Rates (9x4 matrix)
+log_returns_forward_matrix = np.log(forward_rate_data.shift(-1) / forward_rate_data).dropna()
+log_returns_forward_matrix = log_returns_forward_matrix.iloc[:, :4]  # Ensure it's 9x4
+
+# Step 3: Compute Covariance Matrices
+cov_matrix_yields = log_returns_yield_matrix.cov()  # 5x5 matrix
+cov_matrix_forwards = log_returns_forward_matrix.cov()  # 4x4 matrix
+
+# Rename Columns for Clarity
+log_returns_yield_matrix.columns = [f'Yield_{i+1}yr' for i in range(log_returns_yield_matrix.shape[1])]
+log_returns_forward_matrix.columns = [f'Fwd_{i+1}yr' for i in range(log_returns_forward_matrix.shape[1])]
+
+cov_matrix_yields.columns, cov_matrix_yields.index = log_returns_yield_matrix.columns, log_returns_yield_matrix.columns
+cov_matrix_forwards.columns, cov_matrix_forwards.index = log_returns_forward_matrix.columns, log_returns_forward_matrix.columns
+
+# Step 4: Display Results
+tools.display_dataframe_to_user(name="Log-Return Matrix for Yields (9x5)", dataframe=log_returns_yield_matrix)
+tools.display_dataframe_to_user(name="Log-Return Matrix for Forward Rates (9x4)", dataframe=log_returns_forward_matrix)
+tools.display_dataframe_to_user(name="Covariance Matrix of Yields (5x5)", dataframe=cov_matrix_yields)
+tools.display_dataframe_to_user(name="Covariance Matrix of Forward Rates (4x4)", dataframe
+
+###Q6
+# Compute Eigenvalues and Eigenvectors for both covariance matrices
+
+# For Yields Covariance Matrix (5x5)
+eigenvalues_yields, eigenvectors_yields = np.linalg.eig(cov_matrix_yields)
+
+# For Forward Rates Covariance Matrix (4x4)
+eigenvalues_forwards, eigenvectors_forwards = np.linalg.eig(cov_matrix_forwards)
+
+# Convert to DataFrame for better readability
+eigen_df_yields = pd.DataFrame({'Eigenvalue': eigenvalues_yields, 'Eigenvector': list(eigenvectors_yields.T)})
+eigen_df_forwards = pd.DataFrame({'Eigenvalue': eigenvalues_forwards, 'Eigenvector': list(eigenvectors_forwards.T)})
+
+# Display Eigenvalues and Eigenvectors
+tools.display_dataframe_to_user(name="Eigenvalues and Eigenvectors of Yields Covariance Matrix", dataframe=eigen_df_yields)
+tools.display_dataframe_to_user(name="Eigenvalues and Eigenvectors of Forward Rates Covariance Matrix", dataframe=eigen_df_forwards)
+
+# Interpretation of the first eigenvalue and eigenvector
+largest_eigenvalue_yields = np.max(eigenvalues_yields)
+largest_eigenvector_yields = eigenvectors_yields[:, np.argmax(eigenvalues_yields)]
+
+largest_eigenvalue_forwards = np.max(eigenvalues_forwards)
+largest_eigenvector_forwards = eigenvectors_forwards[:, np.argmax(eigenvalues_forwards)]
