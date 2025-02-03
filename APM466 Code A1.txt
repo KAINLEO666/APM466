@@ -1,0 +1,86 @@
+###2.2 4(a)
+import pandas as pd
+import numpy as np
+from scipy.optimize import newton
+
+# Define the YTM calculation function
+def ytm(price, coupon, years_to_maturity, face=100, freq=2):
+    coupon_payment = (coupon / 100 * face) / freq
+    periods = years_to_maturity * freq
+    cash_flows = [coupon_payment] * int(periods)
+    cash_flows[-1] += face  # Add face value to last payment
+
+    def pv(y):
+        return sum([cf / (1 + y/freq)**t for t, cf in enumerate(cash_flows, 1)]) - price
+
+    return newton(pv, x0=0.05)  # Initial guess YTM = 5%
+
+# Define bond data (from previous selections)
+bond_data = [
+    ["CA135087Q640", 3.50, 0.58, 100.26],
+    ["CA135087R226", 4.50, 1.08, 101.54],
+    ["CA135087R556", 4.00, 1.32, 101.24],
+    ["CA135087R978", 4.00, 1.58, 101.51],
+    ["CA135087S547", 3.00, 2.07, 100.07],
+    ["CA135087P733", 3.25, 2.63, 101.00],
+    ["CA135087P576", 3.50, 3.14, 101.65],
+    ["CA135087Q491", 3.25, 3.65, 101.02],
+    ["CA135087Q988", 4.00, 4.14, 103.90],
+    ["CA135087R895", 3.50, 4.65, 101.97]
+]
+
+# Convert list to DataFrame
+bonds_df = pd.DataFrame(bond_data, columns=["ISIN", "Coupon %", "Years to Maturity", "Price"])
+
+# Compute YTM for each bond
+bonds_df["YTM (%)"] = bonds_df.apply(lambda row: ytm(row["Price"], row["Coupon %"], row["Years to Maturity"]) * 100, axis=1)
+
+# Display the table in horizontal format
+bonds_ytm_table = bonds_df.set_index("ISIN").T
+
+# Show the table to user
+import ace_tools as tools
+tools.display_dataframe_to_user(name="YTM Calculation Table", dataframe=bonds_ytm_table)
+###2(a)
+import pandas as pd
+import numpy as np
+from scipy.optimize import newton
+
+# Define the YTM calculation function
+def ytm(price, coupon, years_to_maturity, face=100, freq=2):
+    coupon_payment = (coupon / 100 * face) / freq
+    periods = years_to_maturity * freq
+    cash_flows = [coupon_payment] * int(periods)
+    cash_flows[-1] += face  # Add face value to last payment
+
+    def pv(y):
+        return sum([cf / (1 + y/freq)**t for t, cf in enumerate(cash_flows, 1)]) - price
+
+    return newton(pv, x0=0.05)  # Initial guess YTM = 5%
+
+# Define bond data (from previous selections)
+bond_data = [
+    ["CA135087Q640", 3.50, 0.58, 100.26],
+    ["CA135087R226", 4.50, 1.08, 101.54],
+    ["CA135087R556", 4.00, 1.32, 101.24],
+    ["CA135087R978", 4.00, 1.58, 101.51],
+    ["CA135087S547", 3.00, 2.07, 100.07],
+    ["CA135087P733", 3.25, 2.63, 101.00],
+    ["CA135087P576", 3.50, 3.14, 101.65],
+    ["CA135087Q491", 3.25, 3.65, 101.02],
+    ["CA135087Q988", 4.00, 4.14, 103.90],
+    ["CA135087R895", 3.50, 4.65, 101.97]
+]
+
+# Convert list to DataFrame
+bonds_df = pd.DataFrame(bond_data, columns=["ISIN", "Coupon %", "Years to Maturity", "Price"])
+
+# Compute YTM for each bond
+bonds_df["YTM (%)"] = bonds_df.apply(lambda row: ytm(row["Price"], row["Coupon %"], row["Years to Maturity"]) * 100, axis=1)
+
+# Display the table in horizontal format
+bonds_ytm_table = bonds_df.set_index("ISIN").T
+
+# Show the table to user
+import ace_tools as tools
+tools.display_dataframe_to_user(name="YTM Calculation Table", dataframe=bonds_ytm_table)
